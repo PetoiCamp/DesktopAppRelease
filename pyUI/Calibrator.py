@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import os
-import re
 os.environ["PETOI_SHOW_GUI"] = "1"
 from PetoiRobot import *
 
@@ -98,46 +97,15 @@ class Calibrator:
             time.sleep(0.01)
         self.configName = config.model_
         self.boardVersion = config.version_
+        # printH('boardVersion:', self.boardVersion)
         config.model_ = config.model_.replace(' ', '')
-# make the model menu
-        self._derive_ui_model()
-
-        # Load configuration from file (same pattern as Debugger — for menu Model / Language persistence)
-        try:
-            with open(defaultConfPath, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            lines = [line.split('\n')[0] for line in lines]
-            self.defaultLan = lines[0]
-            self.defaultPath = lines[2]
-            self.defaultSwVer = lines[3]
-            self.defaultBdVer = lines[4]
-            self.defaultMode = lines[5]
-            if len(lines) >= 8:
-                self.defaultCreator = lines[6]
-                self.defaultLocation = lines[7]
-            else:
-                self.defaultCreator = txt('Nature')
-                self.defaultLocation = txt('Earth')
-            self.configuration = [self.defaultLan, self.configName, self.defaultPath, self.defaultSwVer, self.defaultBdVer,
-                                  self.defaultMode, self.defaultCreator, self.defaultLocation]
-        except Exception:
-            self.defaultLan = 'English'
-            self.defaultPath = releasePath[:-1]
-            self.defaultSwVer = '2.0'
-            self.defaultBdVer = NyBoard_version
-            self.defaultMode = 'Standard'
-            self.defaultCreator = txt('Nature')
-            self.defaultLocation = txt('Earth')
-            self.configuration = [self.defaultLan, self.configName, self.defaultPath, self.defaultSwVer, self.defaultBdVer,
-                                  self.defaultMode, self.defaultCreator, self.defaultLocation]
-#        if config.model_ == 'BittleX':
-#            self.model = 'Bittle'
-#        elif config.model_ == 'BittleX+Arm':
-#            self.model = 'BittleX+Arm'
-#        elif config.model_ == 'NybbleQ':
-#            self.model = 'Nybble'
-#        else:
-#            self.model = config.model_
+        if config.model_ == 'BittleX':
+            self.model = 'Bittle'
+        elif config.model_ == 'NybbleQ':
+            self.model = 'Nybble'
+        else:
+            self.model = config.model_
+        self.is6dof = self.model in ('Chero', 'Mini')
 
         self.winCalib = Tk()
         self.winCalib.title(txt('calibTitle'))
@@ -423,13 +391,13 @@ class Calibrator:
             scaleNames = RegularScaleNames
         self._scaleNames = scaleNames
 
-        wire_plain = resourcePath + config.model_ + '_Wire.jpeg'
-        if config.model_ not in WIRE_BIBOARD_MODELS:
-            wire_path = wire_plain
-        elif model_from_menu:
-            wire_path = resourcePath + config.model_ + '1' + '_Wire.jpeg'
-        elif "B" in self.boardVersion and len(self.boardVersion) > 1:
-            wire_path = resourcePath + config.model_ + self.boardVersion[1] + '_Wire.jpeg'
+        # Use actual model name for images (Mini has its own copies)
+        modelForImage = config.model_
+
+        if "B" in self.boardVersion and config.model_ != 'DoF16':
+            self.imgWiring = createImage(self.frameCalibButtons,
+                                         resourcePath + modelForImage + self.boardVersion[1] + '_Wire.jpeg',
+                                         self.parameterSet['imageW'])
         else:
             wire_path = wire_plain
         self._wire_image_path = wire_path
@@ -451,24 +419,12 @@ class Calibrator:
         self.imgWiring.configure(anchor='center')
         Hovertip(self.imgWiring, txt('tipImgWiring'))
 
-        self.imgPosture = createImage(self.winCalib, resourcePath + self.model + '_Ruler.jpeg', img_w)
-        self._posture_photo_ref = self.imgPosture.image
-        self.imgPosture.configure(anchor='center')
-        self.imgPosture.grid(row=self._posture_start_row, column=cc, rowspan=self._posture_rowspan, sticky='nsew')
-
-        for c in range(3):
-            self.frameCalibMid.grid_columnconfigure(c, weight=1)
-        self.frameCalibMid.grid(row=self._calib_mid_row, column=cc, sticky='ew')
-        self.calibButton.grid(row=0, column=0)
-        self.restButton.grid(row=0, column=1)
-        self.standButton.grid(row=0, column=2)
-
-        for c in range(3):
-            self.frameCalibButtons.grid_columnconfigure(c, weight=1)
-        self.frameCalibButtons.grid(row=14, column=cc, sticky='ew')
-        self.walkButton.grid(row=0, column=0)
-        self.saveButton.grid(row=0, column=1)
-        self.abortButton.grid(row=0, column=2)
+        if config.model_ == 'NybbleQ':
+            self.imgPosture = createImage(self.frameCalibButtons, resourcePath + config.model_  + '_Ruler.jpeg', self.parameterSet['imageW'])
+        else:
+            self.imgPosture = createImage(self.frameCalibButtons, resourcePath + self.model + '_Ruler.jpeg', self.parameterSet['imageW'])
+        # Middle image between button rows
+        self.imgPosture.grid(row=2, column=0, rowspan=3, columnspan=3, sticky='n')
 
         # For 6-DoF models, show 6 joints; otherwise 16
         if self.is6dof:
@@ -561,15 +517,10 @@ class Calibrator:
                     # ALIGN = 'sw'
             if i in NaJoints[self.model]:
                 clr = 'light yellow'
-                stt = DISABLED  # N/A joints: show position but do not allow dragging
+                stt = DISABLED
             else:
                 clr = 'yellow'
                 stt = NORMAL
-
-            if ORI == HORIZONTAL:
-                sticky_label, sticky_scale = 'ew', 'ew'
-            else:
-                sticky_label, sticky_scale = 'n', 'ns'
             
             # Set side labels
             if self.is6dof:
@@ -868,6 +819,7 @@ if __name__ == '__main__':
     # Do not reassign goodPorts: `from PetoiRobot import *` binds the same dict as ardSerial.goodPorts;
     # smartConnectPorts()/testPort populate that shared dict. If `goodPorts = {}` ran here, this module's
     # name would point at an empty dict and send(goodPorts, ...) would always see len==0 (no serial I/O).
+    # goodPorts = {}
     try:
         #        time.sleep(2)
         #        if len(goodPorts)>0:

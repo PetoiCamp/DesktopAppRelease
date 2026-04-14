@@ -213,3 +213,7 @@ pyUI/lib/*
 pyUI/README_Mac.txt
 pyUI/README_Windows.txt
 pyUI/PetoiDesktopApp/*
+pyUI/Mac/*
+.DS_Store
+pyUI/.DS_Store
+

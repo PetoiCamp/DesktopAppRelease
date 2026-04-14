@@ -224,9 +224,7 @@ class SkillComposer:
             time.sleep(0.01)
         self.configName = config.model_
         config.model_ = config.model_.replace(' ','')
-        if 'BittleX+Arm' in config.model_:
-            self.model = 'BittleX+Arm'
-        elif config.model_== 'BittleX':
+        if config.model_== 'BittleX':
             self.model = 'Bittle'
         elif config.model_== 'NybbleQ':
             self.model = 'Nybble'
@@ -357,7 +355,10 @@ class SkillComposer:
         self.mirror = False
         self.createMenu()
         self.createController()
-        self.placeProductImage()
+        if config.model_== 'NybbleQ':
+            self.placeProductImage(config.model_)
+        else:
+            self.placeProductImage(self.model)
         self.createDial()
         self.createPosture()
         self.createSkillEditor()
@@ -654,9 +655,9 @@ class SkillComposer:
             self.dialValue[idx].set(False)
             self.frameDial.winfo_children()[idx+1].config(fg='red')
 
-    def deacGyrp(self):
+    def deacGyro(self):
         self.boardVer = config.version_
-        printH("boardVer:", self.boardVer)
+        # printH("boardVer:", self.boardVer)
         # Check if boardVer is empty or None to avoid IndexError
         if not self.boardVer or len(self.boardVer) == 0:
             logger.warning(f"boardVer is empty, skipping gyro deactivation. config.version_: '{config.version_}'")
@@ -727,7 +728,7 @@ class SkillComposer:
             tip(button, txt(tipDial[i]))
         # for i in range(len(dialTable)):
         #     printH(list(dialTable)[i], self.dialValue[i].get())
-        self.deacGyrp()
+        self.deacGyro()
 
         self.createPortMenu()
         
@@ -774,7 +775,7 @@ class SkillComposer:
                 self.options.insert(0, txt('All'))
             if self.keepChecking:
                 self.frameDial.winfo_children()[1].config(text=txt('Connected'), fg='green')
-                self.deacGyrp()
+                self.deacGyro()
         for string in self.options:
             menu.add_command(label=string, command=lambda p=string: self.port.set(p))
         self.port.set(self.options[0])
@@ -925,14 +926,14 @@ class SkillComposer:
 
 
 
-    def placeProductImage(self):
+    def placeProductImage(self, model):
         rowFrameImage = self.parameterSet['rowFrameImage']    # The row number of the image frame is located
         imgWidth = self.parameterSet['imgWidth']              # The width of image
         rowSpan = self.parameterSet['imgRowSpan']             # The number of lines occupied by the image frame
 
         # Use model-specific image (Mini has its own copy)
-        imgFile = resourcePath + self.model + '.jpeg'
-            
+        imgFile = resourcePath + model + '.jpeg'
+
         # Create image normally
         self.frameImage = self.createImage(self.frameController, imgFile, imgWidth)
         
@@ -1033,9 +1034,11 @@ class SkillComposer:
             model = model.replace(' ', '')
             if 'Bittle' in model and model != "BittleX+Arm": # Bittle or Bittle X will be Bittle
                 model = 'Bittle'
+                self.model = copy.deepcopy(model)
             elif model == 'NybbleQ':
-                model = 'Nybble'
-            self.model = copy.deepcopy(model)
+                self.model = copy.deepcopy('Nybble')
+            else:
+                self.model = copy.deepcopy(model)
             self.is6dof = self.model in ('Chero','Mini')
             self.postureTable = postureDict[self.model]
             self.framePosture.destroy()
@@ -1073,7 +1076,7 @@ class SkillComposer:
 #                 self.binderButton[i * 2 + 1].config(state=stt)
 
             self.createPosture()
-            self.placeProductImage()
+            self.placeProductImage(model)
             self.restartSkillEditor()
 
     def addFrame(self, currentRow):
@@ -2552,7 +2555,7 @@ class SkillComposer:
                     send(ports, ['b', [10, 90], 0])
                     if len(goodPorts) > 0:
                         self.frameDial.winfo_children()[1].config(text=txt('Connected'), fg='green')
-                        self.deacGyrp()
+                        self.deacGyro()
                         # for b in buttons:
                         #     b.config(state = NORMAL)
                     else:
@@ -2611,6 +2614,7 @@ class SkillComposer:
            
 if __name__ == '__main__':
     # Do not rebind goodPorts; it must remain the same dict as PetoiRobot.ardSerial.goodPorts (see Calibrator.py).
+    # goodPorts = {}
     try:
 #        connectPort(goodPorts)
 #        ports = goodPorts

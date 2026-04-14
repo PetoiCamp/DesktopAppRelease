@@ -120,6 +120,7 @@ class Tuner:
             
 if __name__ == '__main__':
     # Do not rebind goodPorts; it must remain the same dict as PetoiRobot.ardSerial.goodPorts (see Calibrator.py).
+    # goodPorts = {}
     try:
         Tuner(model,language)
         closeAllSerial(goodPorts)
